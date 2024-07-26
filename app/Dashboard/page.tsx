@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+
 import { BsFillPeopleFill } from "react-icons/bs";
 import { TrendingUp } from "lucide-react"
 import { Label, Pie, PieChart } from "recharts"
@@ -37,39 +38,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 
-const chartData = [
-  { browser: "chrome", visitors: 275, fill: "var(--color-chrome)" },
-  { browser: "safari", visitors: 200, fill: "var(--color-safari)" },
-  { browser: "firefox", visitors: 287, fill: "var(--color-firefox)" },
-  { browser: "edge", visitors: 173, fill: "var(--color-edge)" },
-  { browser: "other", visitors: 190, fill: "var(--color-other)" },
-]
-const chartConfig = {
-  visitors: {
-    label: "Visitors",
-  },
-  chrome: {
-    label: "Chrome",
-    color: "hsl(var(--chart-1))",
-  },
-  safari: {
-    label: "Safari",
-    color: "hsl(var(--chart-2))",
-  },
-  firefox: {
-    label: "Firefox",
-    color: "hsl(var(--chart-3))",
-  },
-  edge: {
-    label: "Edge",
-    color: "hsl(var(--chart-4))",
-  },
-  other: {
-    label: "Other",
-    color: "hsl(var(--chart-5))",
-  },
-} satisfies ChartConfig
-
 interface Patient {
   patient_id: number;
   hospital_id: number;
@@ -86,27 +54,53 @@ const Page = ({ index }: { index: number }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [filter, setFilter] = useState<string>('');
+  const [chartData, setChartData] = useState<{ date: string; visitors: any; fill: string; }[]>([]);
   const patientsPerPage = 5;
 
-  const totalVisitors = React.useMemo(() => {
-    return chartData.reduce((acc, curr) => acc + curr.visitors, 0)
-  }, [])
+  const fetchPatients = async () => {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('*');
+
+    if (error) {
+      setError('Failed to fetch data.');
+      console.error(error);
+    } else {
+      setPatients(data as Patient[]);
+      // Group by date and count the number of patients for each date
+      const dateCounts = data.reduce((acc, patient) => {
+        const date = new Date(patient.created_at).toLocaleDateString();
+        if (!acc[date]) {
+          acc[date] = 0;
+        }
+        acc[date]++;
+        return acc;
+      }, {});
+
+      const colorVariables = [
+        "hsl(var(--chart-1))",
+        "hsl(var(--chart-2))",
+        "hsl(var(--chart-3))",
+        "hsl(var(--chart-4))",
+        "hsl(var(--chart-5))",
+        "hsl(var(--chart-6))",
+        
+        // Add more colors if needed
+      ];
+      
+      // Transform the grouped data into chart data
+      const transformedChartData = Object.keys(dateCounts).map((date, index) => ({
+        date,
+        visitors: dateCounts[date],
+        fill: colorVariables[index % colorVariables.length], // Cycle through colors
+      }));
+
+      setChartData(transformedChartData);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchPatients = async () => {
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*');
-
-      if (error) {
-        setError('Failed to fetch data.');
-        console.error(error);
-      } else {
-        setPatients(data as Patient[]);
-      }
-      setLoading(false);
-    };
-
     fetchPatients();
   }, []);
 
@@ -153,12 +147,24 @@ const Page = ({ index }: { index: number }) => {
     currentPage * patientsPerPage
   );
 
+  const chartConfig = {
+    visitors: {
+      label: "Visitors",
+    },
+    default: {
+      label: "Default",
+      color: "hsl(var(--chart-1))",
+    },
+  } satisfies ChartConfig
+
+  const totalVisitors = chartData.reduce((acc, curr) => acc + curr.visitors, 0);
+
   return (
     <>
       <div className='mt-[100px] '>
-        <Card className="flex flex-col w-[400px] ml-[500px]">
+        <Card className="flex flex-col w-[400px] ml-[70vh]">
           <CardHeader className="items-center pb-0">
-            <CardTitle>Toatl Patients</CardTitle>
+            <CardTitle>Total Patients</CardTitle>
             <CardDescription> July 2024</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 pb-0">
@@ -174,7 +180,7 @@ const Page = ({ index }: { index: number }) => {
                 <Pie
                   data={chartData}
                   dataKey="visitors"
-                  nameKey="browser"
+                  nameKey="date"
                   innerRadius={60}
                   strokeWidth={5}
                 >
@@ -236,7 +242,7 @@ const Page = ({ index }: { index: number }) => {
             <TableCaption>Patient Details</TableCaption>
             <TableHeader>
               <TableRow>
-              <TableHead className="w-[100px]">Sno</TableHead>
+                <TableHead className="w-[100px]">Sno</TableHead>
                 <TableHead className="w-[100px]">Name</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>Contact</TableHead>
