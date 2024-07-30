@@ -10,8 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-import { BsFillPeopleFill } from "react-icons/bs";
+import { TypewriterEffectSmooth } from "../components/ui/typewriter-effect";
 import { TrendingUp } from "lucide-react"
 import { Label, Pie, PieChart } from "recharts"
 import {
@@ -37,6 +36,17 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { format } from "date-fns"
+import { Calendar as CalendarIcon } from "lucide-react"
+ 
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface Patient {
   patient_id: number;
@@ -54,10 +64,11 @@ const Page = ({ index }: { index: number }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [filter, setFilter] = useState<string>('');
+  const [date, setDate] = useState<Date | null>(null);
   const [chartData, setChartData] = useState<{ date: string; visitors: any; fill: string; }[]>([]);
   const patientsPerPage = 5;
 
-  const fetchPatients = async () => {
+  const fetchPatients = async (selectedDate: Date | null) => {
     const { data, error } = await supabase
       .from('patients')
       .select('*');
@@ -66,9 +77,18 @@ const Page = ({ index }: { index: number }) => {
       setError('Failed to fetch data.');
       console.error(error);
     } else {
-      setPatients(data as Patient[]);
+      let filteredData = data;
+
+      if (selectedDate) {
+        filteredData = data.filter(patient => 
+          new Date(patient.created_at).toLocaleDateString() === selectedDate.toLocaleDateString()
+        );
+      }
+
+      setPatients(filteredData as Patient[]);
+
       // Group by date and count the number of patients for each date
-      const dateCounts = data.reduce((acc, patient) => {
+      const dateCounts = filteredData.reduce((acc, patient) => {
         const date = new Date(patient.created_at).toLocaleDateString();
         if (!acc[date]) {
           acc[date] = 0;
@@ -101,8 +121,16 @@ const Page = ({ index }: { index: number }) => {
   };
 
   useEffect(() => {
-    fetchPatients();
-  }, []);
+    fetchPatients(date);
+  }, [date]);
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilter(e.target.value);
+    setDate(null); // Reset the date filter when the text filter is used
+  };
+  const handleClearDate = () => {
+    setDate(null);
+  };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -123,6 +151,8 @@ const Page = ({ index }: { index: number }) => {
 
   const totalPatients = filteredPatients.length;
   const totalPages = Math.ceil(totalPatients / patientsPerPage);
+
+//Pagination logic
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -159,9 +189,29 @@ const Page = ({ index }: { index: number }) => {
 
   const totalVisitors = chartData.reduce((acc, curr) => acc + curr.visitors, 0);
 
+  const words = [
+    {
+      text: "Welcome",
+    },
+    {
+      text: "to",
+    },
+    {
+      text: "the",
+    },
+  
+    {
+      text: "Dashboard.",
+      className: "text-blue-500 dark:text-blue-500",
+    },
+  ]
+
   return (
     <>
-      <div className='mt-[100px] '>
+      <div className='mt-[100px] ' >
+        <div className='ml-[50vh]'>
+        <TypewriterEffectSmooth words={words} />
+        </div>
         <Card className="flex flex-col w-[400px] ml-[70vh]">
           <CardHeader className="items-center pb-0">
             <CardTitle>Total Patients</CardTitle>
@@ -234,9 +284,37 @@ const Page = ({ index }: { index: number }) => {
               type="text"
               placeholder="Search by name, address, contact, email, or date..."
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={handleFilterChange}
               className="w-full p-2 border rounded-md"
             />
+            <div className='mt-2'>
+            <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn(
+            "w-[280px] justify-start text-left font-normal",
+            !date && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={date || undefined}
+          onSelect={(value: Date | null | undefined) => setDate(value ?? null)}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+    <Button variant="destructive" className='justify-items-end ml-[400px] rounded-xl w-[100px]'
+     onClick={handleClearDate}>
+       Clear
+      </Button>
+    </div>
           </div>
           <Table>
             <TableCaption>Patient Details</TableCaption>
@@ -303,4 +381,4 @@ const Page = ({ index }: { index: number }) => {
   )
 }
 
-export default Page
+export default Page;
