@@ -1,5 +1,7 @@
 "use client"
 import { ContainerScroll } from "./components/ui/container-scroll-animation";
+import ShootingStars from "./components/ui/shooting-stars";
+import { StarsBackground } from "./components/ui/stars-background";
 import Image from "next/image";
 import mainImg from '..//public/main.jpg'
 import Navbar from "./components/Navbar";
@@ -9,6 +11,8 @@ export default function Home() {
   return (
     <div className="bg-gradient-to-r from-slate-500 to-slate-900">
     <Navbar/>
+    <ShootingStars />
+      <StarsBackground />
    
     <div className="flex flex-col overflow-hidden">
     <ContainerScroll
@@ -32,6 +36,7 @@ export default function Home() {
         draggable={false}
       />
     </ContainerScroll>
+    
   </div>
   </div>
   );
